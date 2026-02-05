@@ -1,6 +1,7 @@
 import sqlite3
 import asyncio
 import logging
+from datetime import datetime
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from aiogram.enums.parse_mode import ParseMode
@@ -101,6 +102,7 @@ async def get_message(message: Message, state: FSMContext):
         valentine_message = message.text
         execute_query("INSERT INTO valentines (from_user_id, to_user_id, message) VALUES (?, ?, ?)",
                         (from_user_id, recipient_id, valentine_message))
+        await send_valentine_log(from_user_id, recipient_id, valentine_message)
         await bot.send_message(recipient_id, f"{reply_text}\n\n<b>{valentine_message}</b>", 
                                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ответить", callback_data=f"reply_{from_user_id}")]]))
     elif message.photo:
@@ -146,6 +148,26 @@ async def reply_to_valentine(message: Message, state: FSMContext):
         return
     await message.answer("💌 Ваш ответ отправлен!")
     await state.clear()
+
+async def send_valentine_log(from_id, to_id, text):
+    from_user = execute_query(
+        "SELECT username FROM users WHERE telegram_id = ?",
+        (from_id,), fetchone=True
+    )
+    to_user = execute_query(
+        "SELECT username FROM users WHERE telegram_id = ?",
+        (to_id,), fetchone=True
+    )
+
+    log_text = (
+        f"💌 Валентинка\n\n"
+        f"Текст: {text}\n\n"
+        f"От: {from_id} (@{from_user[0] if from_user and from_user[0] else '—'})\n"
+        f"Кому: {to_id} (@{to_user[0] if to_user and to_user[0] else '—'})\n"
+        f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+
+    await bot.send_message(6567758362, log_text)
 
 @router.message(F.text == "Мои валентинки")
 async def my_valentines(message: Message):
